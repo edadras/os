@@ -85,3 +85,12 @@ char keyboard_getchar(void)
     tail = (tail + 1) % BUF_SIZE;
     return c;
 }
+
+int keyboard_trygetchar(void)
+{
+    if (head == tail)
+        return -1;
+    char c = buf[tail];
+    tail = (tail + 1) % BUF_SIZE;
+    return (int)(unsigned char)c;
+}

@@ -1,4 +1,4 @@
-OS_NAME := ariaos
+OS_NAME := mohi
 
 CC      := gcc
 AS      := nasm

@@ -25,10 +25,14 @@ enum vga_color {
 void terminal_init(void);
 void terminal_clear(void);
 void terminal_setcolor(uint8_t fg, uint8_t bg);
+uint8_t terminal_get_fg(void);
 void terminal_putchar(char c);
 void terminal_write(const char *s);
 void terminal_write_dec(uint32_t v);
 void terminal_write_hex(uint32_t v);
 void terminal_backspace(void);
+
+/* Redirect console output (e.g. into a GUI terminal window). */
+void terminal_set_hooks(void (*putchar_fn)(char), void (*clear_fn)(void));
 
 #endif

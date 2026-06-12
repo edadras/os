@@ -10,6 +10,19 @@
 static size_t row;
 static size_t col;
 static uint8_t color;
+static void (*putchar_hook)(char);
+static void (*clear_hook)(void);
+
+void terminal_set_hooks(void (*putchar_fn)(char), void (*clear_fn)(void))
+{
+    putchar_hook = putchar_fn;
+    clear_hook = clear_fn;
+}
+
+uint8_t terminal_get_fg(void)
+{
+    return color & 0x0F;
+}
 
 static uint16_t vga_entry(char c, uint8_t clr)
 {
@@ -32,6 +45,10 @@ void terminal_setcolor(uint8_t fg, uint8_t bg)
 
 void terminal_clear(void)
 {
+    if (clear_hook) {
+        clear_hook();
+        return;
+    }
     for (size_t y = 0; y < VGA_HEIGHT; y++)
         for (size_t x = 0; x < VGA_WIDTH; x++)
             VGA_MEM[y * VGA_WIDTH + x] = vga_entry(' ', color);
@@ -60,6 +77,11 @@ void terminal_putchar(char c)
 {
     serial_putchar(c);
 
+    if (putchar_hook) {
+        putchar_hook(c);
+        return;
+    }
+
     if (c == '\n') {
         col = 0;
         row++;
@@ -83,6 +105,10 @@ void terminal_putchar(char c)
 
 void terminal_backspace(void)
 {
+    if (putchar_hook) {
+        putchar_hook('\b');
+        return;
+    }
     if (col == 0 && row == 0)
         return;
     if (col == 0) {

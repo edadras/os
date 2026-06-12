@@ -13,14 +13,14 @@ static void print_logo(void)
 {
     terminal_setcolor(VGA_LIGHT_CYAN, VGA_BLACK);
     terminal_write("\n");
-    terminal_write("     _          _        ___  ____  \n");
-    terminal_write("    / \\   _ __ (_) __ _ / _ \\/ ___| \n");
-    terminal_write("   / _ \\ | '__|| |/ _` | | | \\___ \\ \n");
-    terminal_write("  / ___ \\| |   | | (_| | |_| |___) |\n");
-    terminal_write(" /_/   \\_\\_|   |_|\\__,_|\\___/|____/ \n");
+    terminal_write("  __  __   ___   _   _  ___ \n");
+    terminal_write(" |  \\/  | / _ \\ | | | ||_ _|\n");
+    terminal_write(" | |\\/| || | | || |_| | | | \n");
+    terminal_write(" | |  | || |_| ||  _  | | | \n");
+    terminal_write(" |_|  |_| \\___/ |_| |_||___|\n");
     terminal_write("\n");
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
-    terminal_write("  " OS_NAME " v" OS_VERSION " — " OS_AUTHOR "\n\n");
+    terminal_write("  " OS_NAME " v" OS_VERSION " - " OS_AUTHOR "\n\n");
 }
 
 static void cmd_help(void)
@@ -106,7 +106,7 @@ static void cmd_reboot(void)
         __asm__ volatile ("hlt");
 }
 
-static void execute(char *line)
+void shell_execute(char *line)
 {
     /* strip leading spaces */
     while (*line == ' ')
@@ -149,12 +149,17 @@ static void execute(char *line)
     }
 }
 
+void shell_banner(void)
+{
+    print_logo();
+    terminal_write("Type 'help' to see available commands.\n\n");
+}
+
 void shell_run(void)
 {
     char line[LINE_MAX];
 
-    print_logo();
-    terminal_write("Type 'help' to see available commands.\n\n");
+    shell_banner();
 
     for (;;) {
         terminal_setcolor(VGA_LIGHT_GREEN, VGA_BLACK);
@@ -181,6 +186,6 @@ void shell_run(void)
             }
         }
         line[len] = '\0';
-        execute(line);
+        shell_execute(line);
     }
 }

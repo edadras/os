@@ -4,7 +4,7 @@
 BITS 32
 
 MB_MAGIC    equ 0x1BADB002
-MB_FLAGS    equ 0x00000003          ; page-align modules + provide memory map
+MB_FLAGS    equ 0x00000007          ; page-align + memory map + video mode
 MB_CHECKSUM equ -(MB_MAGIC + MB_FLAGS)
 
 section .multiboot
@@ -12,6 +12,11 @@ align 4
     dd MB_MAGIC
     dd MB_FLAGS
     dd MB_CHECKSUM
+    dd 0, 0, 0, 0, 0                ; load addresses (unused, bit 16 clear)
+    dd 0                            ; mode type: linear graphics
+    dd 1024                         ; width
+    dd 768                          ; height
+    dd 32                           ; bits per pixel
 
 section .text
 global _start

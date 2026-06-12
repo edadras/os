@@ -1,6 +1,8 @@
 #include "kernel.h"
 #include "config.h"
+#include "fb.h"
 #include "gdt.h"
+#include "gui.h"
 #include "idt.h"
 #include "keyboard.h"
 #include "serial.h"
@@ -23,24 +25,33 @@ void kmain(uint32_t magic, const multiboot_info_t *mbi)
         mb_info = mbi;
 
     serial_init();
-    terminal_init();
 
-    terminal_write("[boot] " OS_NAME " " OS_VERSION " starting...\n");
+    int have_fb = fb_init(mb_info);
+    if (!have_fb)
+        terminal_init();    /* VGA text mode fallback */
+
+    serial_write("[boot] " OS_NAME " " OS_VERSION " starting...\n");
 
     gdt_init();
-    terminal_write("[boot] GDT loaded\n");
+    serial_write("[boot] GDT loaded\n");
 
     idt_init();
-    terminal_write("[boot] IDT + PIC ready\n");
+    serial_write("[boot] IDT + PIC ready\n");
 
     timer_init(100);
-    terminal_write("[boot] PIT timer at 100 Hz\n");
+    serial_write("[boot] PIT timer at 100 Hz\n");
 
     keyboard_init();
-    terminal_write("[boot] PS/2 keyboard driver ready\n");
+    serial_write("[boot] PS/2 keyboard driver ready\n");
 
     __asm__ volatile ("sti");
-    terminal_write("[boot] interrupts enabled\n");
+    serial_write("[boot] interrupts enabled\n");
 
-    shell_run();
+    if (have_fb) {
+        serial_write("[boot] framebuffer found, starting desktop\n");
+        gui_run();
+    } else {
+        serial_write("[boot] no framebuffer, starting text shell\n");
+        shell_run();
+    }
 }
