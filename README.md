@@ -1,6 +1,25 @@
 # MOHI
 
-سیستم‌عامل ۳۲ بیتی نوشته‌شده **از صفر** به زبان C و Assembly — بدون استفاده از لینوکس یا هیچ کرنل آماده‌ای. با **رابط گرافیکی پنجره‌ای** شبیه ویندوز.
+پروژه MOHI دو بخش دارد / The MOHI project has two parts:
+
+1. **MOHI Core** — سیستم‌عامل ۳۲ بیتی نوشته‌شده **از صفر** به زبان C و Assembly با رابط گرافیکی پنجره‌ای (این مخزن، پوشه‌های `boot/` و `kernel/`)
+2. **MOHI OS** — توزیع لینوکس اختصاصی با دسکتاپ شبیه ویندوز، مرورگر وب و پشتیبانی **برنامه‌های اندروید** از طریق Waydroid (پوشه `distro/`)
+
+---
+
+## MOHI OS — توزیع کامل با پشتیبانی اندروید
+
+```bash
+sudo bash distro/build-mohi-os.sh    # روی اوبونتو 24.04 — خروجی: mohi-os.iso
+```
+
+این ISO قابل بوت (BIOS و UEFI) شامل: دسکتاپ XFCE با تم شبیه ویندوز (Chicago95)، منوی استارت، مرورگر وب، فونت فارسی وزیرمتن، و Waydroid برای نصب برنامه‌های اندروید است. بعد از بوت، روی آیکون **«Setup Android Apps»** روی دسکتاپ کلیک کنید تا ایمیج اندروید دانلود و نصب شود (نیاز به اینترنت دارد). سپس فایل‌های APK را می‌توانید با `waydroid app install file.apk` نصب کنید.
+
+⚠️ نکته: برنامه‌های iOS روی هیچ سیستم‌عاملی غیر از iOS قابل اجرا نیستند (محدودیت فنی و حقوقی اپل).
+
+---
+
+## MOHI Core — کرنل از صفر
 
 A 32-bit operating system written **from scratch** in C and assembly — no Linux, no pre-made kernel. Featuring a **Windows-style graphical desktop**.
 
