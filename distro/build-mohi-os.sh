@@ -115,9 +115,9 @@ if [ $WAYDROID_REPO -ne 0 ]; then
         git clone -q --depth 1 https://github.com/mer-hybris/libgbinder.git
         git clone -q --depth 1 https://github.com/erfanoabdi/gbinder-python.git
         git clone -q --depth 1 https://github.com/waydroid/waydroid.git
-        make -s -C libglibutil KEEP_VERSIONS=1 release
+        make -s -C libglibutil KEEP_VERSIONS=1 release pkgconfig
         make -s -C libglibutil install-dev
-        make -s -C libgbinder KEEP_VERSIONS=1 release
+        make -s -C libgbinder KEEP_VERSIONS=1 release pkgconfig
         make -s -C libgbinder install-dev
         ldconfig
         cd gbinder-python && pip3 install -q --break-system-packages . && cd ..
