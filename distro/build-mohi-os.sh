@@ -58,6 +58,14 @@ printf '#!/bin/sh\nexit 101\n' > "$ROOTFS/usr/sbin/policy-rc.d"
 chmod +x "$ROOTFS/usr/sbin/policy-rc.d"
 cp /etc/resolv.conf "$ROOTFS/etc/resolv.conf"
 
+# If the build host sits behind a TLS-intercepting proxy, trust its CA
+# inside the chroot for the duration of the build (removed in cleanup).
+if ls /usr/local/share/ca-certificates/*.crt >/dev/null 2>&1; then
+    mkdir -p "$ROOTFS/usr/local/share/ca-certificates/build-proxy"
+    cp /usr/local/share/ca-certificates/*.crt \
+        "$ROOTFS/usr/local/share/ca-certificates/build-proxy/"
+fi
+
 # ---------------------------------------------------------------- apt setup
 stage "Configuring apt sources"
 cat > "$ROOTFS/etc/apt/sources.list" <<EOF
@@ -84,6 +92,7 @@ in_chroot "apt-get install -y -qq \
     build-essential pkg-config libglib2.0-dev python3-dev cython3"
 
 in_chroot "locale-gen en_US.UTF-8 fa_IR.UTF-8 >/dev/null || locale-gen en_US.UTF-8 >/dev/null"
+in_chroot "update-ca-certificates >/dev/null 2>&1 || true"
 
 # ---------------------------------------------------------------- waydroid
 stage "Installing Waydroid (Android app support)"
@@ -291,6 +300,10 @@ stage "Cleaning up chroot"
 in_chroot "apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* || true"
 truncate -s 0 "$ROOTFS/etc/machine-id"
 rm -f "$ROOTFS/etc/resolv.conf"
+if [ -d "$ROOTFS/usr/local/share/ca-certificates/build-proxy" ]; then
+    rm -rf "$ROOTFS/usr/local/share/ca-certificates/build-proxy"
+    in_chroot "update-ca-certificates --fresh >/dev/null 2>&1 || true"
+fi
 
 stage "Regenerating initramfs with casper hooks"
 mount -t proc proc "$ROOTFS/proc" 2>/dev/null || true
