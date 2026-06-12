@@ -18,7 +18,7 @@ ROOTFS="$WORK/rootfs"
 ISODIR="$WORK/iso"
 OUT="${MOHI_OUT:-$PWD/mohi-os.iso}"
 OS_PRETTY="MOHI OS"
-OS_VER="1.0"
+OS_VER="1.1"
 
 stage() { echo; echo "==== [$(date +%H:%M:%S)] $* ===="; }
 
@@ -77,19 +77,29 @@ in_chroot "apt-get update -qq"
 
 # ---------------------------------------------------------------- packages
 stage "Installing kernel, live-boot support and desktop (this takes a while)"
+# drop the old XFCE desktop if this tree was built by an earlier version
+in_chroot "apt-get purge -y -qq xfce4 xfce4-panel xfce4-session xfce4-settings \
+    xfdesktop4 xfwm4 xfce4-terminal xfce4-whiskermenu-plugin \
+    xfce4-taskmanager thunar mousepad ristretto \
+    lightdm lightdm-gtk-greeter 2>/dev/null; \
+    apt-get autoremove -y -qq --purge 2>/dev/null" || true
+rm -rf "$ROOTFS/etc/xdg/xfce4" "$ROOTFS/etc/lightdm" \
+    "$ROOTFS/usr/share/themes/Chicago95" "$ROOTFS"/usr/share/icons/Chicago95*
+
 in_chroot "apt-get install -y -qq \
     linux-generic casper \
     locales sudo nano less ca-certificates curl git wget \
-    xfce4 xfce4-terminal xfce4-whiskermenu-plugin xfce4-taskmanager \
-    thunar mousepad ristretto \
-    lightdm lightdm-gtk-greeter \
-    network-manager network-manager-gnome \
+    plasma-desktop plasma-workspace-wayland kwin-wayland \
+    plasma-nm plasma-pa kscreen \
+    sddm dolphin konsole \
+    network-manager \
     pulseaudio pavucontrol \
     epiphany-browser \
     fonts-dejavu fonts-vazirmatn \
     python3-pil \
     lxc dnsmasq-base nftables python3-pip \
     build-essential pkg-config libglib2.0-dev python3-dev cython3"
+echo "/usr/bin/sddm" > "$ROOTFS/etc/X11/default-display-manager"
 
 in_chroot "locale-gen en_US.UTF-8 fa_IR.UTF-8 >/dev/null || locale-gen en_US.UTF-8 >/dev/null"
 in_chroot "update-ca-certificates >/dev/null 2>&1 || true"
@@ -133,14 +143,15 @@ else
 fi
 
 # ---------------------------------------------------------------- theme
-stage "Installing Windows-style theme (Chicago95)"
+stage "Installing Windows 11 style theme (Win11OS-kde + Fluent icons)"
 in_chroot "set -e
     cd /tmp
-    rm -rf Chicago95
-    git clone -q --depth 1 https://github.com/grassmunk/Chicago95.git
-    cp -r Chicago95/Theme/Chicago95 /usr/share/themes/
-    cp -r Chicago95/Icons/* /usr/share/icons/
-    rm -rf /tmp/Chicago95"
+    rm -rf Win11OS-kde Fluent-icon-theme
+    git clone -q --depth 1 https://github.com/yeyushengfan258/Win11OS-kde.git
+    git clone -q --depth 1 https://github.com/vinceliuice/Fluent-icon-theme.git
+    cd Win11OS-kde && ./install.sh >/dev/null 2>&1 && cd ..
+    cd Fluent-icon-theme && ./install.sh >/dev/null 2>&1 && cd ..
+    rm -rf /tmp/Win11OS-kde /tmp/Fluent-icon-theme"
 
 # ---------------------------------------------------------------- branding
 stage "Applying MOHI branding"
@@ -163,106 +174,118 @@ EOF
 echo "mohi" > "$ROOTFS/etc/hostname"
 printf '127.0.0.1\tlocalhost\n127.0.1.1\tmohi\n' > "$ROOTFS/etc/hosts"
 
-# wallpaper
+# wallpaper: Windows-11-style soft gradient "bloom"
 mkdir -p "$ROOTFS/usr/share/backgrounds/mohi"
 in_chroot "python3 - <<'PYEOF'
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 W, H = 1920, 1080
 img = Image.new('RGB', (W, H))
 d = ImageDraw.Draw(img)
-top, bottom = (0, 64, 64), (0, 128, 128)
+c1, c2 = (16, 36, 94), (66, 24, 120)      # deep blue -> violet
 for y in range(H):
     t = y / H
-    d.line([(0, y), (W, y)], fill=tuple(int(a+(b-a)*t) for a, b in zip(top, bottom)))
-f1 = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 220)
-f2 = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 48)
+    d.line([(0, y), (W, y)], fill=tuple(int(a+(b-a)*t) for a, b in zip(c1, c2)))
+glow = Image.new('RGB', (W, H), (0, 0, 0))
+gd = ImageDraw.Draw(glow)
+gd.ellipse((W//2-650, H//2-350, W//2+650, H//2+550), fill=(30, 90, 200))
+gd.ellipse((W//2-300, H//2-450, W//2+700, H//2+150), fill=(70, 50, 180))
+glow = glow.filter(ImageFilter.GaussianBlur(220))
+img = Image.blend(img, Image.composite(glow, img, glow.convert('L')), 0.55)
+d = ImageDraw.Draw(img)
+f1 = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 190)
+f2 = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 44)
 t1 = 'MOHI'
-w1 = d.textbbox((0,0), t1, font=f1)[2]
-d.text(((W-w1)//2+6, H//2-160+6), t1, font=f1, fill=(0,40,40))
-d.text(((W-w1)//2, H//2-160), t1, font=f1, fill=(240,250,250))
+w1 = d.textbbox((0, 0), t1, font=f1)[2]
+d.text(((W-w1)//2+5, H//2-150+5), t1, font=f1, fill=(10, 15, 40))
+d.text(((W-w1)//2, H//2-150), t1, font=f1, fill=(245, 248, 255))
 t2 = 'Operating System'
-w2 = d.textbbox((0,0), t2, font=f2)[2]
-d.text(((W-w2)//2, H//2+90), t2, font=f2, fill=(180,220,220))
+w2 = d.textbbox((0, 0), t2, font=f2)[2]
+d.text(((W-w2)//2, H//2+80), t2, font=f2, fill=(200, 210, 240))
 img.save('/usr/share/backgrounds/mohi/wallpaper.png')
 PYEOF"
 
-# XFCE defaults: bottom Windows-style panel, whisker start menu, theme
-XDG="$ROOTFS/etc/xdg/xfce4/xfconf/xfce-perchannel-xml"
-mkdir -p "$XDG"
+# Plasma defaults: Windows-11-style centered bottom panel + Win11OS theme
+SKEL="$ROOTFS/etc/skel/.config"
+mkdir -p "$SKEL"
 
-cat > "$XDG/xfce4-panel.xml" <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<channel name="xfce4-panel" version="1.0">
-  <property name="configver" type="int" value="2"/>
-  <property name="panels" type="array">
-    <value type="int" value="1"/>
-    <property name="panel-1" type="empty">
-      <property name="position" type="string" value="p=8;x=0;y=0"/>
-      <property name="length" type="uint" value="100"/>
-      <property name="position-locked" type="bool" value="true"/>
-      <property name="size" type="uint" value="36"/>
-      <property name="plugin-ids" type="array">
-        <value type="int" value="1"/>
-        <value type="int" value="2"/>
-        <value type="int" value="3"/>
-        <value type="int" value="4"/>
-        <value type="int" value="5"/>
-      </property>
-    </property>
-  </property>
-  <property name="plugins" type="empty">
-    <property name="plugin-1" type="string" value="whiskermenu"/>
-    <property name="plugin-2" type="string" value="tasklist"/>
-    <property name="plugin-3" type="string" value="separator">
-      <property name="expand" type="bool" value="true"/>
-      <property name="style" type="uint" value="0"/>
-    </property>
-    <property name="plugin-4" type="string" value="systray"/>
-    <property name="plugin-5" type="string" value="clock"/>
-  </property>
-</channel>
+CSFILE=$(ls "$ROOTFS/usr/share/color-schemes/" 2>/dev/null | grep -i '^win11.*light' | head -1)
+COLORSCHEME="${CSFILE%.colors}"
+[ -z "$COLORSCHEME" ] && COLORSCHEME=BreezeLight
+
+cat > "$SKEL/kdeglobals" <<EOF
+[KDE]
+LookAndFeelPackage=com.github.yeyushengfan258.Win11OS-light
+widgetStyle=Breeze
+
+[General]
+ColorScheme=$COLORSCHEME
+
+[Icons]
+Theme=Fluent
 EOF
 
-cat > "$XDG/xsettings.xml" <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<channel name="xsettings" version="1.0">
-  <property name="Net" type="empty">
-    <property name="ThemeName" type="string" value="Chicago95"/>
-    <property name="IconThemeName" type="string" value="Chicago95"/>
-  </property>
-</channel>
+cat > "$SKEL/plasmarc" <<'EOF'
+[Theme]
+name=Win11OS-light
 EOF
 
-cat > "$XDG/xfwm4.xml" <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<channel name="xfwm4" version="1.0">
-  <property name="general" type="empty">
-    <property name="theme" type="string" value="Chicago95"/>
-    <property name="button_layout" type="string" value="O|HMC"/>
-  </property>
-</channel>
+cat > "$SKEL/kwinrc" <<'EOF'
+[org.kde.kdecoration2]
+library=org.kde.kwin.aurorae
+theme=__aurorae__svg__Win11OS-light
 EOF
 
-cat > "$XDG/xfce4-desktop.xml" <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<channel name="xfce4-desktop" version="1.0">
-  <property name="backdrop" type="empty">
-    <property name="screen0" type="empty">
-      <property name="monitorVirtual1" type="empty">
-        <property name="workspace0" type="empty">
-          <property name="last-image" type="string" value="/usr/share/backgrounds/mohi/wallpaper.png"/>
-          <property name="image-style" type="int" value="5"/>
-        </property>
-      </property>
-      <property name="monitorVirtual-1" type="empty">
-        <property name="workspace0" type="empty">
-          <property name="last-image" type="string" value="/usr/share/backgrounds/mohi/wallpaper.png"/>
-          <property name="image-style" type="int" value="5"/>
-        </property>
-      </property>
-    </property>
-  </property>
-</channel>
+cat > "$SKEL/plasma-org.kde.plasma.desktop-appletsrc" <<'EOF'
+[Containments][1]
+activityId=
+formfactor=0
+immutability=1
+lastScreen=0
+location=0
+plugin=org.kde.plasma.folder
+wallpaperplugin=org.kde.image
+
+[Containments][1][Wallpaper][org.kde.image][General]
+Image=file:///usr/share/backgrounds/mohi/wallpaper.png
+
+[Containments][2]
+activityId=
+formfactor=2
+immutability=1
+lastScreen=0
+location=4
+plugin=org.kde.panel
+
+[Containments][2][General]
+AppletOrder=8;3;4;9;5;6;7
+
+[Containments][2][Applets][3]
+immutability=1
+plugin=org.kde.plasma.kickoff
+
+[Containments][2][Applets][4]
+immutability=1
+plugin=org.kde.plasma.icontasks
+
+[Containments][2][Applets][5]
+immutability=1
+plugin=org.kde.plasma.marginsseparator
+
+[Containments][2][Applets][6]
+immutability=1
+plugin=org.kde.plasma.systemtray
+
+[Containments][2][Applets][7]
+immutability=1
+plugin=org.kde.plasma.digitalclock
+
+[Containments][2][Applets][8]
+immutability=1
+plugin=org.kde.plasma.panelspacer
+
+[Containments][2][Applets][9]
+immutability=1
+plugin=org.kde.plasma.panelspacer
 EOF
 
 # live session configuration
@@ -274,23 +297,53 @@ export BUILD_SYSTEM="Ubuntu"
 export FLAVOUR="MOHI"
 EOF
 
-mkdir -p "$ROOTFS/etc/lightdm/lightdm.conf.d"
-cat > "$ROOTFS/etc/lightdm/lightdm.conf.d/10-mohi-live.conf" <<EOF
-[Seat:*]
-autologin-user=mohi
-autologin-user-timeout=0
-user-session=xfce
+# SDDM: autologin into the Plasma Wayland session (needed so Android
+# apps open as native windows via Waydroid multi-window mode)
+WLSESSION=$(ls "$ROOTFS/usr/share/wayland-sessions/" 2>/dev/null | grep -i plasma | head -1)
+SESSION_NAME="${WLSESSION%.desktop}"
+[ -z "$SESSION_NAME" ] && SESSION_NAME=plasma
+mkdir -p "$ROOTFS/etc/sddm.conf.d"
+cat > "$ROOTFS/etc/sddm.conf.d/10-mohi-live.conf" <<EOF
+[Autologin]
+User=mohi
+Session=$SESSION_NAME
 EOF
+if [ -d "$ROOTFS/usr/share/sddm/themes/Win11OS-light" ]; then
+    printf '\n[Theme]\nCurrent=Win11OS-light\n' \
+        >> "$ROOTFS/etc/sddm.conf.d/10-mohi-live.conf"
+fi
 
-# Waydroid first-run helper on the desktop
+# Android setup helper: init Waydroid + enable multi-window so Android
+# apps get their own start-menu entries and open as normal windows
+cat > "$ROOTFS/usr/local/bin/mohi-android-setup" <<'EOF'
+#!/bin/bash
+set -e
+echo "=== MOHI Android Setup ==="
+echo "Downloading the Android system image (needs internet)..."
+sudo waydroid init -s GAPPS
+if ! grep -q multi_windows /var/lib/waydroid/waydroid_base.prop 2>/dev/null; then
+    echo "persist.waydroid.multi_windows=true" | \
+        sudo tee -a /var/lib/waydroid/waydroid_base.prop >/dev/null
+fi
+sudo systemctl restart waydroid-container
+nohup waydroid session start >/dev/null 2>&1 &
+sleep 8
+echo
+echo "Done! Android apps now appear in the start menu under Waydroid"
+echo "and open in their own windows. Install apps from the Play Store"
+echo "or with:  waydroid app install yourapp.apk"
+read -rp "Press Enter to close..."
+EOF
+chmod +x "$ROOTFS/usr/local/bin/mohi-android-setup"
+
 mkdir -p "$ROOTFS/etc/skel/Desktop"
 cat > "$ROOTFS/etc/skel/Desktop/setup-android.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
-Name=Setup Android Apps (Waydroid)
-Comment=Download the Android system image and start Waydroid
+Name=Setup Android Apps
+Comment=Download the Android system image and enable Android apps
 Icon=phone
-Exec=xfce4-terminal -T "Android Setup" -e "bash -c 'sudo waydroid init -s GAPPS && sudo systemctl restart waydroid-container && waydroid show-full-ui; read -p \"Done. Press Enter...\"'"
+Exec=konsole -e /usr/local/bin/mohi-android-setup
 Terminal=false
 EOF
 chmod +x "$ROOTFS/etc/skel/Desktop/setup-android.desktop"
