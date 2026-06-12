@@ -1,0 +1,44 @@
+#include "gdt.h"
+#include <stdint.h>
+
+struct gdt_entry {
+    uint16_t limit_low;
+    uint16_t base_low;
+    uint8_t base_middle;
+    uint8_t access;
+    uint8_t granularity;
+    uint8_t base_high;
+} __attribute__((packed));
+
+struct gdt_ptr {
+    uint16_t limit;
+    uint32_t base;
+} __attribute__((packed));
+
+static struct gdt_entry gdt[3];
+static struct gdt_ptr gp;
+
+extern void gdt_flush(uint32_t gp_addr);
+
+static void gdt_set_gate(int n, uint32_t base, uint32_t limit,
+                         uint8_t access, uint8_t gran)
+{
+    gdt[n].base_low = base & 0xFFFF;
+    gdt[n].base_middle = (base >> 16) & 0xFF;
+    gdt[n].base_high = (base >> 24) & 0xFF;
+    gdt[n].limit_low = limit & 0xFFFF;
+    gdt[n].granularity = (uint8_t)(((limit >> 16) & 0x0F) | (gran & 0xF0));
+    gdt[n].access = access;
+}
+
+void gdt_init(void)
+{
+    gp.limit = sizeof(gdt) - 1;
+    gp.base = (uint32_t)&gdt;
+
+    gdt_set_gate(0, 0, 0, 0, 0);                /* null descriptor */
+    gdt_set_gate(1, 0, 0xFFFFF, 0x9A, 0xCF);    /* kernel code, 4 GiB flat */
+    gdt_set_gate(2, 0, 0xFFFFF, 0x92, 0xCF);    /* kernel data, 4 GiB flat */
+
+    gdt_flush((uint32_t)&gp);
+}

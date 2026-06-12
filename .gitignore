@@ -1,0 +1,6 @@
+build/
+*.iso
+*.ppm
+*.png
+serial.log
+*.tar.gz
